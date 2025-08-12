@@ -53,7 +53,7 @@
 #define Tag_GNU_Power_ABI_Vector               8
 #define Tag_GNU_Power_ABI_Struct_Return       12
 
-#define GNU_Power_ABI_FP_MAX_KNOWN             3
+#define GNU_Power_ABI_FP_MAX_KNOWN             15
 #define GNU_Power_ABI_FP_SP_HARD               3
 #define GNU_Power_ABI_FP_SOFT                  2
 #define GNU_Power_ABI_FP_HARD                  1
@@ -107,7 +107,7 @@ pmelf_ppc_attribute_tag_n(Pmelf_attribute_tbl *patbl, Elf32_Word tag)
 static const char *
 ppc_abi_fp_val(const int val)
 {
-	switch ( val ) {
+	switch ( val & 0x3 ) {
 		case 0: return "abi-float-AGNOSTIC";
 		case 1:	return "abi-hard-float";
 		case 2:	return "abi-soft-float";
@@ -118,11 +118,27 @@ ppc_abi_fp_val(const int val)
 	return 0;
 }
 
+static const char *
+ppc_abi_fp_flag(const int val)
+{
+  switch ( (val>>2) & 0x3 ) {
+  case 0:
+    return "unknown 64-bit long double";
+  case 1:
+    return "128-bit IBM long double";
+  case 2:
+    return "64-bit long double";
+  case 3:
+    return "128-bit IEEE long double";
+  }
+  return NULL;
+}
+
 /* PPC-specific (SYSV ALTIVEC ABI) attribute value descriptions */
 static const char *
 ppc_abi_vec_val(const int val)
 {
-	switch ( val ) {
+	switch ( val & 0x3 ) {
 		case 0: return "abi-vec-AGNOSTIC";
 		case 1:	return "abi-vec-generic";
 		case 2:	return "abi-vec-altivec";
@@ -136,7 +152,7 @@ ppc_abi_vec_val(const int val)
 static const char *
 ppc_abi_srtn_val(const int val)
 {
-	switch ( val ) {
+	switch ( val & 0x3 ) {
 		case 0: return "abi-struct_rtn-AGNOSTIC";
 		case 1:	return "abi-struct_rtn-r3_r4";
 		case 2:	return "abi-struct_rtn-memory";
@@ -147,17 +163,17 @@ ppc_abi_srtn_val(const int val)
 }
 
 static struct Gnu_PPC_Attributes gnu_ppc_atts[] = {
-	{	tag:                Tag_GNU_Power_ABI_FP,
-		max_known_tag_val:  GNU_Power_ABI_FP_MAX_KNOWN,
-		valfn:              ppc_abi_fp_val
+	{	.tag                = Tag_GNU_Power_ABI_FP,
+		.max_known_tag_val  = GNU_Power_ABI_FP_MAX_KNOWN,
+		.valfn              = ppc_abi_fp_val
 	},
-	{	tag:                Tag_GNU_Power_ABI_Vector,
-		max_known_tag_val:  GNU_Power_ABI_Vector_MAX_KNOWN,
-		valfn:              ppc_abi_vec_val
+	{	.tag                = Tag_GNU_Power_ABI_Vector,
+		.max_known_tag_val  = GNU_Power_ABI_Vector_MAX_KNOWN,
+		.valfn              = ppc_abi_vec_val
 	},
-	{	tag:                Tag_GNU_Power_ABI_Struct_Return,
-		max_known_tag_val:  GNU_Power_ABI_Struct_Return_MAX_KNOWN,
-		valfn:              ppc_abi_srtn_val
+	{	.tag                = Tag_GNU_Power_ABI_Struct_Return,
+		.max_known_tag_val  = GNU_Power_ABI_Struct_Return_MAX_KNOWN,
+		.valfn              = ppc_abi_srtn_val
 	},
 };
 
@@ -173,11 +189,13 @@ pmelf_ppc_file_attribute_print(Pmelf_attribute_tbl *patbl, FILE *f, Elf32_Word t
 Pmelf_pub_attribute   *a   = att;
 const char            *tn  = pmelf_ppc_attribute_tag_n(patbl, tag);
 const char            *tv  = 0;
+const char            *tfl = 0;
 int                   rval = 0;
 
 	switch ( tag ) {
 		case Tag_GNU_Power_ABI_FP:
 			tv = ppc_abi_fp_val(a->i);
+      tfl = ppc_abi_fp_flag(a->i);
 		break;
 
 		case Tag_GNU_Power_ABI_Vector:
@@ -198,7 +216,7 @@ int                   rval = 0;
 	rval += fprintf(f, " == ");
 
 	if ( tv )
-		rval += fprintf(f, "%s", tv);
+		rval += fprintf(f, "%s%s%s", tv, tfl ? ", " : "", tfl ? tfl : "");
 	else {
 		if ( Tag_Compat == tag )
 			rval += fprintf(f, "%"PRIu32", %s", a->i, a->s ? a->s : "<NONE>");
@@ -359,14 +377,14 @@ Pmelf_attribute *a;
 /* PPC-SYSV-gnu 'vendor' table */
 
 Pmelf_attribute_vendor pmelf_attributes_vendor_gnu_ppc = {
-	next:	                     0,
-	name:	                     "gnu",
-	file_attributes_read:        pmelf_pub_file_attributes_read,
-	file_attributes_match:       pmelf_ppc_file_attributes_match,
-	file_attributes_destroy:     pmelf_pub_file_attributes_destroy,
-	file_attributes_tag_type:    pmelf_ppc_attribute_tag_t,
-	file_attributes_tag_name:    pmelf_ppc_attribute_tag_n,
-	file_attributes_print:       pmelf_pub_file_attributes_print,
-	file_attribute_print:        pmelf_ppc_file_attribute_print,
-	max_tag:                     10
+	.next	                       = 0,
+	.name	                       = "gnu",
+	.file_attributes_read        = pmelf_pub_file_attributes_read,
+	.file_attributes_match       = pmelf_ppc_file_attributes_match,
+	.file_attributes_destroy     = pmelf_pub_file_attributes_destroy,
+	.file_attributes_tag_type    = pmelf_ppc_attribute_tag_t,
+	.file_attributes_tag_name    = pmelf_ppc_attribute_tag_n,
+	.file_attributes_print       = pmelf_pub_file_attributes_print,
+	.file_attribute_print        = pmelf_ppc_file_attribute_print,
+	.max_tag                     = 10
 };
